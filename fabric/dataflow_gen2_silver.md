@@ -59,9 +59,9 @@ in
     }),
     // Synthetic email - required for the Power BI dynamic RLS role, which matches
     // USERPRINCIPALNAME() against silver_employees[email]. The source API has no
-    // email field, so it's derived here as firstname.lastname@phcorebank.com.
+    // email field, so it's derived here as firstname+employeeid@phcore.com.
     WithEmail = Table.AddColumn(NormalizeNulls, "email", each
-        Text.Lower(Text.Replace([first_name], " ", "") & "." & Text.Replace([last_name], " ", "") & "@phcorebank.com"),
+        Text.Lower([first_name] & Text.From([employee_id]) & "@phcore.com"),
         type text),
     Deduplicated = Table.Distinct(WithEmail, {"employee_id"}),
     WithLoadedAt = Table.AddColumn(Deduplicated, "_silver_loaded_at", each DateTime.LocalNow(), type datetime),
@@ -74,9 +74,8 @@ in
 > correctly when casting to `type date`.
 >
 > **`email` column added 2026-06-10** to support dynamic RLS (see
-> `rls_roles.md`) - the original silver_employees output did not include this
-> column. The Dataflow Gen2 `employees` query needs to be updated with this
-> step and re-refreshed for RLS to function.
+> `rls_roles.md`) and has already been applied in the live Dataflow Gen2
+> `employees` query.
 
 ## courses
 
@@ -111,7 +110,10 @@ in
         {"session_id", type text},{"course_id", type text},
         {"start_timestamp", type datetime},{"facility_cost", type number},{"max_capacity", Int64.Type}
     }, "en-US"),
-    NormalizeNulls = Table.TransformColumns(TypeEnforced, {
+    // start_timestamp truncated to a date - the model relates sessions to
+    // Dim_Date by day, and the time-of-day component isn't used anywhere.
+    DateOnly = Table.TransformColumns(TypeEnforced, {{"start_timestamp", each DateTime.Date(_), type nullable date}}),
+    NormalizeNulls = Table.TransformColumns(DateOnly, {
         {"session_id", NormText, type text},{"course_id", NormText, type text}
     }),
     Deduplicated = Table.Distinct(NormalizeNulls, {"session_id"}),
@@ -121,8 +123,9 @@ in
     WithSource
 ```
 
-> `start_timestamp` is cast to `type datetime` (not date) - `"en-US"` culture
-> handles Faker's ISO-8601 strings including any optional fractional seconds.
+> `start_timestamp` is cast to `type datetime` first (`"en-US"` culture
+> handles Faker's ISO-8601 strings), then truncated to `type nullable date`
+> via `DateOnly` so it can relate to `Dim_Date[Date]`.
 
 ## enrollments
 

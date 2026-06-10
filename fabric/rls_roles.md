@@ -23,41 +23,26 @@ performance, etc.).
 
 ---
 
-## ⚠️ Schema dependency: `silver_employees[email]`
+## `silver_employees[email]` - synthetic column
 
-This rule references `silver_employees[email]`, but the source API
-(`main.py`) has no `email` field, and the original Dataflow Gen2
-`employees` transformation did not produce one. As written, this RLS rule
-will fail (`LOOKUPVALUE` referencing a non-existent column) or return blank
-for everyone.
-
-**Fix applied to `dataflow_gen2_silver.md`** (2026-06-10): added a
-`WithEmail` step to the `employees` query that derives a synthetic email as
+`silver_employees[email]` does not come from the source API. It's derived
+in the Dataflow Gen2 `employees` query (see `dataflow_gen2_silver.md`) as:
 
 ```
-firstname.lastname@phcorebank.com
+Text.Lower([first_name] & Text.From([employee_id]) & "@phcore.com")
 ```
 
-(lowercased, spaces stripped). To activate this in the live Fabric
-workspace:
-
-1. Open `DF_Silver_PHCORE` -> `employees` query -> Advanced Editor.
-2. Insert the `WithEmail` step shown in `dataflow_gen2_silver.md` (right
-   after `NormalizeNulls`, before `Deduplicated`).
-3. Update `Deduplicated` to read from `WithEmail` instead of
-   `NormalizeNulls`.
-4. Refresh the dataflow so `silver_employees` gains the `email` column.
-5. In Power BI Desktop, refresh/reload the model so the new column is
-   visible to the RLS expression (no DAX change needed - it already
-   references `silver_employees[email]`).
+i.e. `firstname` + `employee_id` + `@phcore.com`, all lowercase - e.g. for
+employee `jane` with ID `EMP-00007`, the email is
+`janeemp-00007@phcore.com`. This is already applied in the live
+`DF_Silver_PHCORE` dataflow and `silver_employees` has the column.
 
 ## Testing the role
 
 In Power BI Desktop: **Modeling -> View as -> [check the role] -> Other
-user**, enter a synthetic email matching the format above for any employee
-who is a `branch_manager_emp_id` for some branch (e.g. for an employee
-named Jane Doe, use `jane.doe@phcorebank.com`). The report should then show
-only that branch's data. To find a valid manager email, look up any
+user**, enter the synthetic email (per the format above) for any employee
+who is a `branch_manager_emp_id` for some branch. The report should then
+show only that branch's data. To find a valid manager email, look up any
 `silver_branches[branch_manager_emp_id]`, find the matching
-`silver_employees` row, and apply the `firstname.lastname@phcorebank.com`
-pattern.
+`silver_employees` row, and build `firstname` + `employee_id` +
+`@phcore.com` (lowercase).
