@@ -1,3 +1,4 @@
+import base64
 from pathlib import Path
 
 import pandas as pd
@@ -293,6 +294,11 @@ if groq_api_key:
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
 
+    if st.session_state.chat_history:
+        if st.button("🗑️ Clear conversation"):
+            st.session_state.chat_history = []
+            st.rerun()
+
     for message in st.session_state.chat_history:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
@@ -344,7 +350,15 @@ if screenshots:
     for col, path in zip(cols, screenshots):
         with col:
             label = path.stem.replace("_", " ").replace("-", " ").title()
-            st.image(str(path), caption=label, width=240)
+            ext = path.suffix.lstrip(".").lower()
+            b64 = base64.b64encode(path.read_bytes()).decode()
+            st.markdown(
+                f'<img src="data:image/{ext};base64,{b64}" '
+                f'style="width:100%;height:160px;object-fit:cover;border-radius:8px;'
+                f'border:1px solid rgba(163,113,247,0.3);" />',
+                unsafe_allow_html=True,
+            )
+            st.caption(label)
             with st.popover("🔍 Expand", use_container_width=True):
                 st.image(str(path), use_container_width=True)
 else:
