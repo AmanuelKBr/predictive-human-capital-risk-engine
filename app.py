@@ -10,9 +10,12 @@ from ai_assistant import get_ai_response
 from data import build_data_context, build_executive_summary, build_gold_facts, compute_kpis, load_silver_tables
 
 # Configure the page
-st.set_page_config(page_title="PHCORE | Data Engineering Portfolio", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="PHCORE | Data Engineering Portfolio", layout="wide", initial_sidebar_state="expanded")
 
-# Modern AI-themed dark CSS: animated gradient background, glowing/pulsating cards
+GITHUB_REPO_URL = "https://github.com/AmanuelKBr/predictive-human-capital-risk-engine"
+PBIX_URL = f"{GITHUB_REPO_URL}/blob/main/fabric/Predictive%20Human%20Capital%20Risk%20Engine%20Dashboard.pbix"
+
+# Modern AI-themed dark CSS: animated gradient background, glowing/pulsating cards, floating AI button
 st.markdown("""
     <style>
     @keyframes gradientShift {
@@ -23,6 +26,10 @@ st.markdown("""
     @keyframes pulseGlow {
         0%, 100% {box-shadow: 0 0 14px rgba(88,166,255,0.25), inset 0 0 8px rgba(163,113,247,0.12);}
         50% {box-shadow: 0 0 28px rgba(163,113,247,0.45), inset 0 0 14px rgba(88,166,255,0.2);}
+    }
+    @keyframes floatPulse {
+        0%, 100% {box-shadow: 0 0 18px 4px rgba(163,113,247,0.55); transform: translateY(0px);}
+        50% {box-shadow: 0 0 32px 10px rgba(88,166,255,0.65); transform: translateY(-6px);}
     }
     .stApp {
         background: linear-gradient(120deg, #0D1117, #161B22, #1A1033, #0D1117);
@@ -48,6 +55,16 @@ st.markdown("""
         border: 1px solid rgba(88, 166, 255, 0.25);
         animation: pulseGlow 5s ease-in-out infinite;
     }
+    .hero-card {
+        background: rgba(22, 27, 34, 0.55);
+        backdrop-filter: blur(12px);
+        padding: 24px 28px;
+        border-radius: 16px;
+        border: 1px solid rgba(247, 120, 186, 0.25);
+        animation: pulseGlow 7s ease-in-out infinite;
+        font-size: 1.05em;
+        line-height: 1.6;
+    }
     div[data-testid="stMetric"] {
         background: rgba(22, 27, 34, 0.55);
         backdrop-filter: blur(12px);
@@ -62,70 +79,62 @@ st.markdown("""
         border-radius: 12px;
         border: 1px solid rgba(88, 166, 255, 0.2);
     }
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(160deg, #0D1117, #1A1033);
+        border-right: 1px solid rgba(163, 113, 247, 0.25);
+    }
     a {color: #79C0FF;}
+    .floating-ai-btn {
+        position: fixed;
+        bottom: 28px;
+        right: 28px;
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #58A6FF, #A371F7, #F778BA);
+        background-size: 200% 200%;
+        animation: floatPulse 3s ease-in-out infinite, gradientShift 6s linear infinite;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 30px;
+        text-decoration: none;
+        z-index: 9999;
+        border: 1px solid rgba(255,255,255,0.4);
+    }
+    .floating-ai-btn:hover {
+        text-decoration: none;
+        filter: brightness(1.15);
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# Header Section
+# Floating AI assistant launcher - jumps to the chat section
+st.markdown(
+    '<a href="#ai-assistant" class="floating-ai-btn" title="Ask PHCORE AI">🤖</a>',
+    unsafe_allow_html=True,
+)
+
+# --- Header ---
 st.title("Predictive Human Capital & Operational Risk Engine (PHCORE)")
 st.markdown("**Role:** Data & Analytics Engineer | **Tech Stack:** Microsoft Fabric, Python, Spark, DAX, Machine Learning")
-st.markdown("---")
 
-GITHUB_REPO_URL = "https://github.com/AmanuelKBr/predictive-human-capital-risk-engine"
-PBIX_URL = f"{GITHUB_REPO_URL}/blob/main/fabric/Predictive%20Human%20Capital%20Risk%20Engine%20Dashboard.pbix"
-
-# Power BI Screenshots & Links Section
-col1, col2 = st.columns([2, 1])
-
-with col1:
-    st.subheader("Power BI Semantic Model — Report Walkthrough")
-    screenshot_dir = Path(__file__).parent / "assets" / "screenshots"
-    screenshots = sorted(p for p in screenshot_dir.glob("*") if p.suffix.lower() in (".png", ".jpg", ".jpeg"))
-    if screenshots:
-        tabs = st.tabs([p.stem.replace("_", " ").replace("-", " ").title() for p in screenshots])
-        for tab, path in zip(tabs, screenshots):
-            with tab:
-                st.image(str(path), use_container_width=True)
-    else:
-        st.info(
-            "Power BI report screenshots go here. Drop PNG/JPG files into "
-            "`assets/screenshots/` (e.g. `01_executive_overview.png`, "
-            "`02_compliance_risk.png`) and they'll appear as tabs automatically."
-        )
-
-with col2:
-    st.subheader("Project Resources")
-    st.markdown(f"""
-    <div class="metric-card">
-        <h4>🔗 Project Links</h4>
-        <p><a href="{GITHUB_REPO_URL}" target="_blank">View GitHub Repository & Code</a></p>
-        <p><a href="{PBIX_URL}" target="_blank">Download Power BI Report (.pbix)</a></p>
-        <p style="font-size:0.85em; color:#8B949E;">The .pbix uses a Direct Lake connection to
-        Microsoft Fabric OneLake — visuals and the data model open in Power BI Desktop, but live
-        data requires access to the source Fabric workspace.</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    st.subheader("Key Engineering Highlights")
-    st.markdown("""
-    * **Medallion Lakehouse:** Bronze/Silver/Gold architecture deployed in Microsoft Fabric.
-    * **Automated ETL:** Dataflow Gen2 pipelines handling JSON ingestion and Delta Parquet upserts.
-    * **Enterprise Semantic Model:** Star schema optimization with dynamic Row-Level Security (RLS).
-    * **Predictive AI:** Integrated Key Influencer logistic regression and NLP Smart Narratives.
-    """)
-
-# Architecture Deep Dive
-st.markdown("---")
-st.subheader("The Data Pipeline Architecture")
-st.markdown("""
-This project solves the fundamental disconnect between HR operations and financial performance. By integrating isolated system endpoints into a unified semantic layer, the business can now mathematically track the ROI of training hours against hard operational metrics like transaction error rates and 90-day employee attrition.
-""")
+# --- Project Narrative ---
+st.markdown(f"""
+<div class="hero-card">
+<b>What this project solves:</b> Training is too often run as an HR cost-center activity, isolated
+from the metrics the business actually cares about. PHCORE links training completions, hours, and
+spend directly to operational outcomes — transaction error rates, cross-sell performance, and
+employee retention — in a single semantic model. The result: training can be evaluated as a
+<b>strategic investment with a measurable ROI</b>, not a compliance checkbox. A team that trains more
+and retains longer should show up as lower error rates, higher cross-sell, and lower attrition —
+and this model makes that link visible and queryable.
+</div>
+""", unsafe_allow_html=True)
 
 # --- Live Dashboard Section ---
 st.markdown("---")
-st.subheader("Live Dashboard")
+st.subheader("📊 Live Dashboard")
 st.markdown(
     "Data below is pulled live from the "
     "[PHCORE Synthetic API](https://phcore-api.onrender.com/docs) and transformed "
@@ -160,13 +169,8 @@ kpi_cols[3].metric(
     f"{kpis['no_show_rate']:.1%}",
 )
 
-st.markdown("<br>", unsafe_allow_html=True)
-st.markdown(f"""
-<div class="metric-card">
-<h4>📋 Master Executive Briefing: Risk & Human Capital</h4>
-{build_executive_summary(kpis)}
-</div>
-""", unsafe_allow_html=True)
+with st.expander("📋 AI Executive Briefing (auto-generated from live data)"):
+    st.markdown(build_executive_summary(kpis))
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -265,7 +269,7 @@ with chart_col4:
 
 # --- AI Insights Section ---
 st.markdown("---")
-st.subheader("🤖 Ask PHCORE AI")
+st.subheader("🤖 Ask PHCORE AI", anchor="ai-assistant")
 st.markdown(
     "Conversational analyst grounded in the live KPIs above, powered by "
     "[Groq](https://groq.com/) (Llama 3.3 70B). Ask things like *\"which "
@@ -309,3 +313,56 @@ if groq_api_key:
         st.session_state.chat_history.append({"role": "assistant", "content": reply})
 else:
     st.info("Provide a Groq API key above to start chatting with the data.")
+
+# --- Engineering Highlights & Pipeline Architecture ---
+st.markdown("---")
+st.subheader("⚙️ Engineering Highlights & Pipeline Architecture")
+st.markdown("""
+This project solves the fundamental disconnect between HR operations and financial performance by
+integrating isolated system endpoints into a unified semantic layer:
+
+* **Medallion Lakehouse:** Bronze/Silver/Gold architecture deployed in Microsoft Fabric, with a
+  FastAPI synthetic data source standing in for core HR/L&D systems.
+* **Automated ETL:** Dataflow Gen2 pipelines handling JSON ingestion and Delta Parquet upserts.
+* **Enterprise Semantic Model:** Star schema with `Dim_Date` and dynamic Row-Level Security (RLS)
+  scoping each branch manager to their own branch.
+* **DAX-Driven Metrics:** 90-day separation rate, training ROI, YoY comparisons, and an
+  AI-style executive narrative — all reproduced live in this app via pandas.
+* **Self-Contained Live Demo:** This dashboard and the AI assistant above run independently of the
+  Fabric trial, pulling directly from the deployed API.
+""")
+
+# --- Power BI Screenshots ---
+st.markdown("---")
+st.subheader("🖼️ Power BI Semantic Model — Report Walkthrough")
+
+screenshot_dir = Path(__file__).parent / "assets" / "screenshots"
+screenshots = sorted(p for p in screenshot_dir.glob("*") if p.suffix.lower() in (".png", ".jpg", ".jpeg"))
+
+if screenshots:
+    cols = st.columns(len(screenshots))
+    for col, path in zip(cols, screenshots):
+        with col:
+            label = path.stem.replace("_", " ").replace("-", " ").title()
+            st.image(str(path), caption=label, width=240)
+            with st.popover("🔍 Expand", use_container_width=True):
+                st.image(str(path), use_container_width=True)
+else:
+    st.info(
+        "Power BI report screenshots go here. Drop PNG/JPG files into "
+        "`assets/screenshots/` (e.g. `01_executive_overview.png`, "
+        "`02_compliance_risk.png`) and they'll appear here automatically."
+    )
+
+# --- Sidebar: Project Resources ---
+with st.sidebar:
+    st.subheader("🔗 Project Resources")
+    st.markdown(f"""
+    <div class="metric-card">
+        <p><a href="{GITHUB_REPO_URL}" target="_blank">View GitHub Repository & Code</a></p>
+        <p><a href="{PBIX_URL}" target="_blank">Download Power BI Report (.pbix)</a></p>
+        <p style="font-size:0.85em; color:#8B949E;">The .pbix uses a Direct Lake connection to
+        Microsoft Fabric OneLake — visuals and the data model open in Power BI Desktop, but live
+        data requires access to the source Fabric workspace.</p>
+    </div>
+    """, unsafe_allow_html=True)
