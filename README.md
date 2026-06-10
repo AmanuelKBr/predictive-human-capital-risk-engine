@@ -6,7 +6,7 @@ outcomes** (transaction error rates, cross-sell performance, employee
 retention) — turning L&D from a cost-center checkbox into a measurable
 strategic ROI story.
 
-**Live demo:** _add your Streamlit Cloud URL here_ ·
+**Live demo:** [phcore-predictive-human-capital-risk-engine.streamlit.app](https://phcore-predictive-human-capital-risk-engine.streamlit.app/) ·
 **Synthetic API:** [phcore-api.onrender.com/docs](https://phcore-api.onrender.com/docs)
 
 > The Streamlit app's API call may take ~60 seconds on first load — it's
