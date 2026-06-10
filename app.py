@@ -1,20 +1,68 @@
+from pathlib import Path
+
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 from plotly.subplots import make_subplots
 
-from data import build_executive_summary, build_gold_facts, compute_kpis, load_silver_tables
+from ai_assistant import get_ai_response
+from data import build_data_context, build_executive_summary, build_gold_facts, compute_kpis, load_silver_tables
 
 # Configure the page
 st.set_page_config(page_title="PHCORE | Data Engineering Portfolio", layout="wide", initial_sidebar_state="collapsed")
 
-# Custom Dark Theme CSS
+# Modern AI-themed dark CSS: animated gradient background, glowing/pulsating cards
 st.markdown("""
     <style>
-    .main {background-color: #0D1117; color: #FFFFFF;}
-    h1, h2, h3 {color: #58A6FF;}
-    .metric-card {background-color: #161B22; padding: 20px; border-radius: 10px; border: 1px solid #30363D;}
+    @keyframes gradientShift {
+        0% {background-position: 0% 50%;}
+        50% {background-position: 100% 50%;}
+        100% {background-position: 0% 50%;}
+    }
+    @keyframes pulseGlow {
+        0%, 100% {box-shadow: 0 0 14px rgba(88,166,255,0.25), inset 0 0 8px rgba(163,113,247,0.12);}
+        50% {box-shadow: 0 0 28px rgba(163,113,247,0.45), inset 0 0 14px rgba(88,166,255,0.2);}
+    }
+    .stApp {
+        background: linear-gradient(120deg, #0D1117, #161B22, #1A1033, #0D1117);
+        background-size: 400% 400%;
+        animation: gradientShift 22s ease infinite;
+        color: #E6EDF3;
+    }
+    h1 {
+        background: linear-gradient(90deg, #58A6FF, #A371F7, #F778BA, #58A6FF);
+        background-size: 300% auto;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: gradientShift 8s linear infinite;
+        font-weight: 800 !important;
+    }
+    h2, h3, h4 {color: #A371F7;}
+    .metric-card {
+        background: rgba(22, 27, 34, 0.55);
+        backdrop-filter: blur(12px);
+        padding: 20px;
+        border-radius: 14px;
+        border: 1px solid rgba(88, 166, 255, 0.25);
+        animation: pulseGlow 5s ease-in-out infinite;
+    }
+    div[data-testid="stMetric"] {
+        background: rgba(22, 27, 34, 0.55);
+        backdrop-filter: blur(12px);
+        border-radius: 14px;
+        border: 1px solid rgba(163, 113, 247, 0.3);
+        padding: 14px;
+        animation: pulseGlow 6s ease-in-out infinite;
+    }
+    div[data-testid="stChatMessage"] {
+        background: rgba(22, 27, 34, 0.55);
+        backdrop-filter: blur(8px);
+        border-radius: 12px;
+        border: 1px solid rgba(88, 166, 255, 0.2);
+    }
+    a {color: #79C0FF;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -23,21 +71,38 @@ st.title("Predictive Human Capital & Operational Risk Engine (PHCORE)")
 st.markdown("**Role:** Data & Analytics Engineer | **Tech Stack:** Microsoft Fabric, Python, Spark, DAX, Machine Learning")
 st.markdown("---")
 
-# Video & Links Section
+GITHUB_REPO_URL = "https://github.com/AmanuelKBr/predictive-human-capital-risk-engine"
+PBIX_URL = f"{GITHUB_REPO_URL}/blob/main/fabric/Predictive%20Human%20Capital%20Risk%20Engine%20Dashboard.pbix"
+
+# Power BI Screenshots & Links Section
 col1, col2 = st.columns([2, 1])
 
 with col1:
-    st.subheader("Architecture & Executive Overview")
-    # Replace the URL below with your actual Loom video link once recorded
-    st.video("https://www.youtube.com/watch?v=YOUR_VIDEO_ID_OR_LOOM_LINK") 
+    st.subheader("Power BI Semantic Model — Report Walkthrough")
+    screenshot_dir = Path(__file__).parent / "assets" / "screenshots"
+    screenshots = sorted(p for p in screenshot_dir.glob("*") if p.suffix.lower() in (".png", ".jpg", ".jpeg"))
+    if screenshots:
+        tabs = st.tabs([p.stem.replace("_", " ").replace("-", " ").title() for p in screenshots])
+        for tab, path in zip(tabs, screenshots):
+            with tab:
+                st.image(str(path), use_container_width=True)
+    else:
+        st.info(
+            "Power BI report screenshots go here. Drop PNG/JPG files into "
+            "`assets/screenshots/` (e.g. `01_executive_overview.png`, "
+            "`02_compliance_risk.png`) and they'll appear as tabs automatically."
+        )
 
 with col2:
     st.subheader("Project Resources")
-    st.markdown("""
+    st.markdown(f"""
     <div class="metric-card">
-        <h4>🔗 Live Deployments</h4>
-        <p><a href="YOUR_POWER_BI_PUBLISH_TO_WEB_LINK" target="_blank">View Live Interactive Dashboard</a></p>
-        <p><a href="YOUR_GITHUB_REPO_LINK" target="_blank">View GitHub Repository & Code</a></p>
+        <h4>🔗 Project Links</h4>
+        <p><a href="{GITHUB_REPO_URL}" target="_blank">View GitHub Repository & Code</a></p>
+        <p><a href="{PBIX_URL}" target="_blank">Download Power BI Report (.pbix)</a></p>
+        <p style="font-size:0.85em; color:#8B949E;">The .pbix uses a Direct Lake connection to
+        Microsoft Fabric OneLake — visuals and the data model open in Power BI Desktop, but live
+        data requires access to the source Fabric workspace.</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -197,3 +262,50 @@ with chart_col4:
         template="plotly_dark", xaxis_title="", yaxis_title="Training Investment ($)",
     )
     st.plotly_chart(fig_cost, use_container_width=True)
+
+# --- AI Insights Section ---
+st.markdown("---")
+st.subheader("🤖 Ask PHCORE AI")
+st.markdown(
+    "Conversational analyst grounded in the live KPIs above, powered by "
+    "[Groq](https://groq.com/) (Llama 3.3 70B). Ask things like *\"which "
+    "department has the highest attrition risk?\"* or *\"how does training "
+    "investment compare year over year?\"*"
+)
+
+try:
+    groq_api_key = st.secrets["GROQ_API_KEY"]
+except (KeyError, FileNotFoundError):
+    groq_api_key = ""
+if not groq_api_key:
+    with st.expander("🔑 Enter a Groq API key to enable the assistant"):
+        groq_api_key = st.text_input(
+            "Groq API key", type="password",
+            help="Get a free key at console.groq.com. For permanent deployments, set "
+                 "GROQ_API_KEY in .streamlit/secrets.toml instead.",
+        )
+
+if groq_api_key:
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
+
+    for message in st.session_state.chat_history:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    if prompt := st.chat_input("Ask a question about the workforce, training, or compliance data..."):
+        st.session_state.chat_history.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking..."):
+                data_context = build_data_context(tables, gold, kpis)
+                try:
+                    reply = get_ai_response(groq_api_key, data_context, st.session_state.chat_history)
+                except Exception as exc:
+                    reply = f"⚠️ Couldn't reach Groq: {exc}"
+            st.markdown(reply)
+        st.session_state.chat_history.append({"role": "assistant", "content": reply})
+else:
+    st.info("Provide a Groq API key above to start chatting with the data.")

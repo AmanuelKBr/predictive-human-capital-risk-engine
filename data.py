@@ -166,6 +166,53 @@ def compute_kpis(tables: dict[str, pd.DataFrame], gold: dict[str, pd.DataFrame])
     }
 
 
+def build_data_context(tables: dict[str, pd.DataFrame], gold: dict[str, pd.DataFrame], kpis: dict) -> str:
+    """Build a compact text summary of the dataset for grounding the AI assistant."""
+    employees = tables["employees"]
+    branches = tables["branches"]
+    enrollment_facts = gold["enrollment_facts"]
+    cert_facts = gold["certification_facts"]
+    performance_facts = gold["performance_facts"]
+
+    headcount_by_dept = employees.groupby("department")["employee_id"].count().to_dict()
+    headcount_by_region = (
+        employees.merge(branches[["branch_id", "region"]], on="branch_id")
+        .groupby("region")["employee_id"].count().to_dict()
+    )
+    error_by_dept = performance_facts.groupby("department")["transaction_error_rate"].mean().round(4).to_dict()
+    cross_sell_by_dept = performance_facts.groupby("department")["cross_sell_ratio"].mean().round(3).to_dict()
+    error_by_year = performance_facts.groupby("year")["transaction_error_rate"].mean().round(4).to_dict()
+    cost_by_dept = enrollment_facts.groupby("department")["training_investment"].sum().round(2).to_dict()
+    cert_status_counts = cert_facts["status"].value_counts().to_dict()
+    investment_by_year = kpis["investment_by_year"].round(2).to_dict()
+
+    return f"""PHCORE People Analytics dataset summary (synthetic banking data, 3-year history through {kpis['current_year']}-06):
+
+KEY METRICS
+- Total employees: {kpis['total_employees']} ({kpis['active_employees']} active, {kpis['total_employees'] - kpis['active_employees']} terminated)
+- 90-Day Separation Rate (early attrition): {kpis['separation_rate_90d']:.1%}
+- New hires: {kpis['new_hires_current']} in {kpis['current_year']}, {kpis['new_hires_prior']} in {kpis['prior_year']}
+- Avg Transaction Error Rate: {kpis['avg_error_rate']:.2%} overall ({kpis['current_year']}: {kpis['avg_error_rate_current']:.2%}, {kpis['prior_year']}: {kpis['avg_error_rate_prior']:.2%})
+- Avg Cross-Sell Ratio: {kpis['avg_cross_sell']:.2f}
+- Training No-Show Rate: {kpis['no_show_rate']:.1%}
+- Total Training Investment (3yr): ${kpis['total_investment']:,.0f}
+- Avg Training Hours per active employee: {kpis['avg_hours_retained']:.1f}
+
+BREAKDOWNS
+- Headcount by department: {headcount_by_dept}
+- Headcount by region: {headcount_by_region}
+- Avg transaction error rate by department: {error_by_dept}
+- Avg cross-sell ratio by department: {cross_sell_by_dept}
+- Training investment by department: {cost_by_dept}
+- Training investment by year: {investment_by_year}
+- Avg transaction error rate by year: {error_by_year}
+- Certification status counts: {cert_status_counts}
+- Branches: {len(branches)} across regions {sorted(branches['region'].unique().tolist())}
+
+Note: {kpis['current_year']} is a partial year (data through ~June), so {kpis['current_year']} totals are not directly comparable to full prior years.
+"""
+
+
 def build_executive_summary(kpis: dict) -> str:
     """Re-implement the Dynamic Executive Summary DAX measure as narrative text."""
     investment = f"${kpis['total_investment']:,.0f}"
