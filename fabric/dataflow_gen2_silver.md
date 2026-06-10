@@ -57,7 +57,13 @@ in
         {"department", NormText, type text},{"job_title", NormText, type text},
         {"status", NormText, type text}
     }),
-    Deduplicated = Table.Distinct(NormalizeNulls, {"employee_id"}),
+    // Synthetic email - required for the Power BI dynamic RLS role, which matches
+    // USERPRINCIPALNAME() against silver_employees[email]. The source API has no
+    // email field, so it's derived here as firstname.lastname@phcorebank.com.
+    WithEmail = Table.AddColumn(NormalizeNulls, "email", each
+        Text.Lower(Text.Replace([first_name], " ", "") & "." & Text.Replace([last_name], " ", "") & "@phcorebank.com"),
+        type text),
+    Deduplicated = Table.Distinct(WithEmail, {"employee_id"}),
     WithLoadedAt = Table.AddColumn(Deduplicated, "_silver_loaded_at", each DateTime.LocalNow(), type datetime),
     WithSource = Table.AddColumn(WithLoadedAt, "_source_system", each "phcore_api", type text)
 in
@@ -66,6 +72,11 @@ in
 
 > `termination_date` is null for Active employees - Power Query handles null
 > correctly when casting to `type date`.
+>
+> **`email` column added 2026-06-10** to support dynamic RLS (see
+> `rls_roles.md`) - the original silver_employees output did not include this
+> column. The Dataflow Gen2 `employees` query needs to be updated with this
+> step and re-refreshed for RLS to function.
 
 ## courses
 
